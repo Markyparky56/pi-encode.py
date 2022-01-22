@@ -1,0 +1,2 @@
+# Don't include pi.cache since it could grow really large and storing tens of thousdands of digits of pi in source control is a bad idea
+pi.cache
