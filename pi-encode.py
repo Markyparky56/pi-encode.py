@@ -130,7 +130,9 @@ def fetchPiFromIndex(index):
         
         return newDigits
     
-#def getPi():  
+def getPi():
+    return PiCache["digits"]
+    
     #modedPi = piToMode(PiCache["digits"], MyOptions.Mode)
     #return ConstBitStream(modedPi)
 
@@ -172,7 +174,7 @@ def base10Encode(inputString):
     stringAsBytes = bytes(inputString, "utf-8")
     stringAsBase10 = ""
     for byte in stringAsBytes:
-        byteStr = str(byte).rjust(3,'0') # Pad left with 0s to aide decoding
+        byteStr = str(byte).rjust(3, '\0') # Pad left with null to aide decoding
         stringAsBase10 += byteStr
     return stringAsBase10
 
@@ -181,10 +183,10 @@ def base10Decode(inputString):
     for i in range(0, len(inputString), 3):
         base10Blocks.append(inputString[i:i+3])
     decodedBytes = bytearray(len(base10Blocks))
-    for i, block in enumerate(base10Blocks):        
-        decodedBytes[i] = int(block)
-    return decodedBytes.decode("utf-8")
-    
+    for i, block in enumerate(base10Blocks):
+        blockStr = block.replace('\0', '')
+        decodedBytes[i] = int(blockStr)
+    return decodedBytes.decode("utf-8")    
   
 # def getFragments(fileBits):
 #     numFrags = int(fileBits.length / MyOptions.TargetFragmentSize)
@@ -197,22 +199,24 @@ def base10Decode(inputString):
 #         length = fileBits.length
 #         return (fileBits.cut(MyOptions.TargetFragmentSize), fileBits[length-remainder:length], numFrags+1)
 
-#def findFragmentInPi(fragment):
-    # print("Searching for fragment: " + fragment.bin)
+def findFragmentInPi(fragment):
+    print("Searching for fragment: " + fragment)
     
-    # if fragment.bin in PiFragmentCache:
-    #     print("fragment " + fragment.bin + " in cache")
-    # else:    
-    #     piBitStream = getPi()
+    if fragment in PiFragmentCache:
+        print("fragment " + fragment + " in cache")
+    else:    
+        piStr = getPi()
         
-    #     pos = piBitStream.find(fragment)
-    #     if not pos:
-    #         print("fragment not in available pi digits")
-    #     else:
-    #         print("fragment found at index " + str(pos[0]))
-    #         print("read-back: " + str(piBitStream[pos[0]:pos[0]+fragment.len].bin))
-    #         if fragment.bin not in PiFragmentCache:
-    #             PiFragmentCache[fragment.bin] = pos[0]
+        searchStr = fragment.replace('\0', '')
+        print("Search Str: " + searchStr)
+        pos = piStr.find(searchStr)
+        if pos == -1:
+            print("fragment not in available pi digits")
+        else:
+            print("fragment found at index " + str(pos))
+            print("read-back: " + str(piStr[pos:pos+len(fragment)]))
+            if fragment not in PiFragmentCache:
+                PiFragmentCache[fragment] = pos
     
 def encodeFragment(index, length):
     return fragmentEncodeTemplate.substitute({"index":index, "length":length})
@@ -240,8 +244,11 @@ def beginEncode():
         print(fragments)
         
         fragmentsBase10 = []
+        fragmenIndices = []
         for frag in fragments:
-            fragmentsBase10.append(base10Encode(frag))
+            base10Str = base10Encode(frag)
+            fragmentsBase10.append(base10Str)
+            findFragmentInPi(base10Str)
         print(fragmentsBase10)
         
         decodedFragments = []
@@ -276,6 +283,8 @@ def loadCachedPi():
         with open("pi.cache", "r") as inCacheFile:
             global PiCache
             PiCache = json.load(inCacheFile)
+            piStrLength = len(PiCache["digits"])
+            print("PiCache length:" + str(piStrLength))
             if MyOptions.Verbose:
                 print("PiCache found and loaded: ")
                 print(PiCache)
@@ -283,9 +292,9 @@ def loadCachedPi():
         if MyOptions.Verbose:
             print("pi.cache not found")
         
-        # No existing cache, pull in the first 10k digits as a starting point
-        for i in range(0, 10000, 1000):
-            fetchPiFromIndex(i)
+    # Pull in the first 100k digits as a starting point
+    for i in range(0, 100000, 1000):
+        fetchPiFromIndex(i)
         
 def saveCachedPi():
     if MyOptions.Verbose:
