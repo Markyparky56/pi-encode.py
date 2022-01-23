@@ -5,9 +5,10 @@ Pi-Encode encodes an input into a series of fragments of Pi
 import sys
 import json
 import enum
+import codecs
 import requests
 import argparse
-from bitstring import ConstBitStream
+#from bitstring import ConstBitStream
 from os.path import exists
 from requests.structures import CaseInsensitiveDict
 from string import Template
@@ -16,12 +17,12 @@ class InOutMode(enum.IntEnum):
     Encode=0,
     Decode=1
 
-class CharMode(enum.IntEnum):
-    Bytes=0
-    Ascii=1
-    UTF16=2
-    UTF32=3
-    UTF8=4
+# class CharMode(enum.IntEnum):
+#     Bytes=0
+#     Ascii=1
+#     UTF16=2
+#     UTF32=3
+#     UTF8=4
     
 class Options:
     def __init__(self):
@@ -31,7 +32,7 @@ class Options:
         self.SaveCachedPiToFile: True
         self.SaveCachedFragments: False
         self.TargetFragmentSize: 10
-        self.Mode: CharMode.Bytes
+        #self.Mode: CharMode.Bytes
         self.InOutMode: InOutMode.Encode
     
     def printOptions(self):
@@ -42,7 +43,7 @@ class Options:
             "SaveCachedPiToFile: ${SaveCachedPiToFile}\n" +
             "SaveCachedFragments: ${SaveCachedFragments}\n" +
             "TargetFragmentSize: ${TargetFragmentSize}\n" +
-            "Mode: ${Mode}\n" +
+            #"Mode: ${Mode}\n" +
             "InOutMode: ${InOutMode}\n"
         )
         params = {
@@ -52,7 +53,7 @@ class Options:
             "SaveCachedPiToFile": self.SaveCachedPiToFile,
             "SaveCachedFragments": self.SaveCachedFragments,
             "TargetFragmentSize": self.TargetFragmentSize,
-            "Mode": self.Mode,
+            #"Mode": self.Mode,
             "InOutMode": self.InOutMode
         }
         print(outputTemplate.substitute(params))
@@ -64,7 +65,7 @@ class Options:
         self.SaveCachedPiToFile = parsedArgs.CachePi
         self.SaveCachedFragments = parsedArgs.CacheFrags
         self.TargetFragmentSize = parsedArgs.TargetFragSize
-        self.Mode = parsedArgs.Mode
+        #self.Mode = parsedArgs.Mode
         self.InOutMode = parsedArgs.InOutMode
         #self.printOptions()
 
@@ -84,6 +85,7 @@ PiCache = {
     "length": 0,
     "digits": ""
 }
+PiFragmentCache = {}
 MyOptions = Options()
     
 parser = argparse.ArgumentParser(description="Encode your favourite files in Pi!", prog="Pi-Encode")
@@ -94,12 +96,13 @@ parser.add_argument("-v", dest="Verbose", action=argparse.BooleanOptionalAction,
 parser.add_argument("--cache-pi", dest="CachePi", action=argparse.BooleanOptionalAction, default=True)
 parser.add_argument("--cache-frags", dest="CacheFrags", action=argparse.BooleanOptionalAction, default=False)
 parser.add_argument("--target-frag-size", dest="TargetFragSize", nargs="?", default=10, type=int)
-modeGroup = parser.add_mutually_exclusive_group(required=True)
-modeGroup.add_argument("--bytes", dest="Mode", action="store_const", const=CharMode.Bytes, help="interpret pi digits as byte data")
-modeGroup.add_argument("--ascii", dest="Mode", action="store_const", const=CharMode.Ascii, help="interpret pi digits as ascii characters")
-modeGroup.add_argument("--utf16", dest="Mode", action="store_const", const=CharMode.UTF16, help="interpret pi digits as utf32 characters")
-modeGroup.add_argument("--utf32", dest="Mode", action="store_const", const=CharMode.UTF32, help="interpret pi digits as utf16 characters")
-modeGroup.add_argument("--utf8" , dest="Mode", action="store_const", const=CharMode.UTF8 , help="interpret pi digits as utf8 characters")
+# binary output mode?
+# modeGroup = parser.add_mutually_exclusive_group(required=True)
+# modeGroup.add_argument("--bytes", dest="Mode", action="store_const", const=CharMode.Bytes, help="interpret pi digits as byte data")
+# modeGroup.add_argument("--ascii", dest="Mode", action="store_const", const=CharMode.Ascii, help="interpret pi digits as ascii characters")
+# modeGroup.add_argument("--utf16", dest="Mode", action="store_const", const=CharMode.UTF16, help="interpret pi digits as utf32 characters")
+# modeGroup.add_argument("--utf32", dest="Mode", action="store_const", const=CharMode.UTF32, help="interpret pi digits as utf16 characters")
+# modeGroup.add_argument("--utf8" , dest="Mode", action="store_const", const=CharMode.UTF8 , help="interpret pi digits as utf8 characters")
 modeGroup = parser.add_mutually_exclusive_group(required=True)
 modeGroup.add_argument("--encode", dest="InOutMode", action="store_const", const=InOutMode.Encode, help="Input is some file to encode")
 modeGroup.add_argument("--decode", dest="InOutMode", action="store_const", const=InOutMode.Decode, help="Input is some file to decode")
@@ -126,38 +129,144 @@ def fetchPiFromIndex(index):
         PiCache["digits"] += newDigits
         
         return newDigits
+    
+#def getPi():  
+    #modedPi = piToMode(PiCache["digits"], MyOptions.Mode)
+    #return ConstBitStream(modedPi)
 
-# Reinterpret the string of pi digits as char array
-def piToMode(piStr, mode):
-    piStrBytes = bytes(piStr, "utf-8") # piStr is utf-8 encoded
+# # Reinterpret the string of pi digits as char array
+# def piToMode(piStr, mode):
+#     piStrBytes = bytes(piStr, "utf-8") # piStr is utf-8 encoded
     
-    # return byte array using different encoding
-    if mode == CharMode.Bytes:
-        return piStrBytes
-    elif mode == CharMode.Ascii:
-        return piStrBytes.decode(encoding="ascii")
-    elif mode == CharMode.UTF16:
-        return piStrBytes.decode(encoding="utf-16")
-    elif mode == CharMode.UTF32:
-        return piStrBytes.decode(encoding="utf-32")
-    elif mode == CharMode.UTF8:
-        return piStrBytes.decode(encoding="utf-8")
-    
+#     # return byte array using different encoding
+#     if mode == CharMode.Bytes:
+#         return piStrBytes
+#     elif mode == CharMode.Ascii:
+#         return piStrBytes.decode(encoding="ascii")
+#     elif mode == CharMode.UTF16:
+#         return piStrBytes.decode(encoding="utf-16")
+#     elif mode == CharMode.UTF32:
+#         return piStrBytes.decode(encoding="utf-32")
+#     elif mode == CharMode.UTF8:
+#         return piStrBytes.decode(encoding="utf-8")    
     
 def getInputFile(inputFileName):
     if exists(inputFileName):
-        return open(inputFileName, "rb")
+        # this might be where the CharModes come in handy?
+        return codecs.open(inputFileName, encoding="utf-8", mode="r")
     else:
         return None
-
-# def getStringBase(mode):
-#     if mode == CharMode.Bytes:
-        
     
-def beginEncode(mode):
+def fragmentInput(inputFile):
+    fragments = []
+    while True:
+        frag = inputFile.read(MyOptions.TargetFragmentSize)
+        if frag:
+            fragments.append(frag)
+        else:
+            # End of file
+            break
+    return fragments
+  
+def base10Encode(inputString):
+    stringAsBytes = bytes(inputString, "utf-8")
+    stringAsBase10 = ""
+    for byte in stringAsBytes:
+        byteStr = str(byte).rjust(3,'0') # Pad left with 0s to aide decoding
+        stringAsBase10 += byteStr
+    return stringAsBase10
+
+def base10Decode(inputString):
+    base10Blocks = []
+    for i in range(0, len(inputString), 3):
+        base10Blocks.append(inputString[i:i+3])
+    decodedBytes = bytearray(len(base10Blocks))
+    for i, block in enumerate(base10Blocks):        
+        decodedBytes[i] = int(block)
+    return decodedBytes.decode("utf-8")
+    
+  
+# def getFragments(fileBits):
+#     numFrags = int(fileBits.length / MyOptions.TargetFragmentSize)
+#     remainder = fileBits.length % MyOptions.TargetFragmentSize
+#     print("fileBits.length: " + str(fileBits.length) + " TargetFragSize: " + str(MyOptions.TargetFragmentSize) + " Remaining Bits: " + str(remainder))
+#     if remainder == 0:
+#         return (fileBits.cut(MyOptions.TargetFragmentSize), None, numFrags)
+#     else:
+#         # Include final smaller fragment 
+#         length = fileBits.length
+#         return (fileBits.cut(MyOptions.TargetFragmentSize), fileBits[length-remainder:length], numFrags+1)
+
+#def findFragmentInPi(fragment):
+    # print("Searching for fragment: " + fragment.bin)
+    
+    # if fragment.bin in PiFragmentCache:
+    #     print("fragment " + fragment.bin + " in cache")
+    # else:    
+    #     piBitStream = getPi()
+        
+    #     pos = piBitStream.find(fragment)
+    #     if not pos:
+    #         print("fragment not in available pi digits")
+    #     else:
+    #         print("fragment found at index " + str(pos[0]))
+    #         print("read-back: " + str(piBitStream[pos[0]:pos[0]+fragment.len].bin))
+    #         if fragment.bin not in PiFragmentCache:
+    #             PiFragmentCache[fragment.bin] = pos[0]
+    
+def encodeFragment(index, length):
+    return fragmentEncodeTemplate.substitute({"index":index, "length":length})
+
+def writeHeader(outFile):
+    header = headerTemplate.subsitute({"marker":marker, "encoding":int(MyOptions.CharMode)})
+    outFile.write(header)
+
+def writeFragment(outFile, encodedFragment):
+    outFile.write(encodedFragment)
+    
+def tryFindFragment(frag, i, foundFragments, missingFragments):
+    if foundFrag := findFragmentInPi(frag):
+        foundFragments[i] = foundFrag
+    else:
+        missingFragments.append(frag)
+    
+def beginEncode():
     if inputFile := getInputFile(MyOptions.InputFile):
-        fileBits = ConstBitStream(inputFile)
-        print(fileBits.bin)
+               
+        #print(fileBits.bin)
+        #print([fileBits.bin[i:i+10] for i in range(0, len(fileBits.bin), 10)])
+        
+        fragments = fragmentInput(inputFile)
+        print(fragments)
+        
+        fragmentsBase10 = []
+        for frag in fragments:
+            fragmentsBase10.append(base10Encode(frag))
+        print(fragmentsBase10)
+        
+        decodedFragments = []
+        for base10Frag in fragmentsBase10:
+            decodedFragments.append(base10Decode(base10Frag))
+        print(decodedFragments)
+        
+        # for frag in fragments[0]:
+        #     print(frag)
+        # if fragments[1] != None:
+        #     print(fragments[1])
+        
+        # foundFragments = [None] * fragments[2]
+        # missingFragments = []
+        # i = 0
+        # for frag in fragments[0]:
+        #     tryFindFragment(frag, i, foundFragments, missingFragments)
+        
+        # if fragments[1] != None:
+        #     tryFindFragment(frag, i, foundFragments, missingFragments)
+            
+        # TODO: handle missing fragments by splitting them into ever smaller slices
+            
+#def beginDecode():
+    
 
 def loadCachedPi():
     if MyOptions.Verbose:
@@ -195,13 +304,10 @@ def main(args):
     loadCachedPi()
     
     if MyOptions.InOutMode == InOutMode.Encode:
-        beginEncode(MyOptions.Mode)
-    
-    #piDigits = fetchPiFromIndex(0)
-    #print(piDigits)
-    #piAsBytes = piToMode(piJson["content"], MyOptions.Mode)
-    #print(piAsBytes)
-    
+        beginEncode()
+    else:
+        beginDecode()
+   
     if (MyOptions.SaveCachedPiToFile):
         saveCachedPi()
 
